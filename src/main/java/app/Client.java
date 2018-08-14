@@ -1,0 +1,40 @@
+package app;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
+import java.net.DatagramPacket;
+import java.net.DatagramSocket;
+import java.net.InetAddress;
+
+public class Client {
+
+	private final static Logger LOGGER = LoggerFactory.getLogger(Client.class);
+
+	public static void main(String args[]) throws Exception
+	{
+		BufferedReader inFromUser =	new BufferedReader(new InputStreamReader(System.in));
+
+		DatagramSocket clientSocket = new DatagramSocket();
+
+		InetAddress IPAddress = InetAddress.getByName("localhost");
+
+		byte[] sendData = new byte[1024];
+		byte[] receiveData = new byte[1024];
+		String sentence = inFromUser.readLine();
+		sendData = sentence.getBytes();
+
+		/* send packet to server */
+		DatagramPacket sendPacket = new DatagramPacket(sendData, sendData.length, IPAddress, 9876);
+		clientSocket.send(sendPacket);
+
+		/* Get response */
+		DatagramPacket receivePacket = new DatagramPacket(receiveData, receiveData.length);
+		clientSocket.receive(receivePacket);
+		String modifiedSentence = new String(receivePacket.getData());
+		LOGGER.info("SERVER:" + modifiedSentence);
+		clientSocket.close();
+	}
+}
