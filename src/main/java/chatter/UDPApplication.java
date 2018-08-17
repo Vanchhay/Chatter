@@ -3,60 +3,82 @@ package chatter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.BufferedReader;
-import java.io.InputStreamReader;
-import java.net.DatagramPacket;
-import java.net.DatagramSocket;
-import java.net.InetAddress;
-import java.net.SocketException;
+import java.net.InetSocketAddress;
+import java.net.SocketAddress;
+import java.nio.ByteBuffer;
+import java.nio.channels.DatagramChannel;
+import java.util.Scanner;
 
 public class UDPApplication {
 
 	private final static Logger LOGGER = LoggerFactory.getLogger(UDPApplication.class);
+	private static final int BUFFER_SIZE = 1024;
+	private static final String HOST = "localhost";
+	private static final int PORT = 9999;
+
+	public static ByteBuffer buffer = null;
+	public static DatagramChannel server = null;
 
 	public static void main(String[] args) {
 
-		DatagramSocket serverSocket = null;
-		try{
-			serverSocket = new DatagramSocket(9876);
-		}catch(SocketException e){
-			e.printStackTrace();
+		if(serverIsInUsed(HOST, PORT)) {
+			try{
+				server = DatagramChannel.open();
+				InetSocketAddress sAddr = new InetSocketAddress(HOST,PORT);
+				server.bind(sAddr);
+				buffer = ByteBuffer.allocate(BUFFER_SIZE);
+			}catch(Exception e){
+
+			}
 		}
-		byte[] receiveData = new byte[1024];
-		byte[] sendData = new byte[1024];
+		Scanner reader = new Scanner(System.in);
 		System.out.println("Chatter");
+		DatagramChannel client;
 		while(true){
 			try{
+				/* Client */
+				client = DatagramChannel.open();
+				client.bind(null);
 
-				while(true) {
-					/* Sender */
-					BufferedReader inFromUser =	new BufferedReader(new InputStreamReader(System.in));
-					DatagramSocket clientSocket = new DatagramSocket();
-					InetAddress IPAddress = InetAddress.getByName("localhost");
+				System.out.print("You : ");
+				String msg = reader.nextLine();
 
-					String sentence = inFromUser.readLine();
-					sendData = sentence.getBytes();
+				buffer = ByteBuffer.wrap(msg.getBytes());
+				InetSocketAddress serverAddress = new InetSocketAddress(HOST, PORT);
 
-					DatagramPacket sendPacket = new DatagramPacket(sendData, sendData.length, IPAddress, 9876);
-					clientSocket.send(sendPacket);
-
-					/* Receiver */
-					DatagramPacket receivePacket = new DatagramPacket(receiveData, receiveData.length);
-					serverSocket.receive(receivePacket);
-					sentence = new String(receivePacket.getData());
-					System.out.println(sentence);
-						/* Get client info */
-					IPAddress = receivePacket.getAddress();
-					int port = receivePacket.getPort();
-					sendData = sentence.getBytes();
-
-					sendPacket = new DatagramPacket(sendData, sendData.length, IPAddress, port);
-					serverSocket.send(sendPacket);
-//					LOGGER.info("PACKET SENT");
-				}
+				client.send(buffer, serverAddress);
+				buffer.clear();
+				/* Stream message to server */
+				streamToServer();
 			}catch(Exception e){
 				LOGGER.info("Exception : " +e.getMessage());
 			}
 		}
 	}
+
+	public static void streamToServer(){
+		try{
+			SocketAddress remoteAddr = server.receive(buffer);
+			buffer.flip();
+			int limits = buffer.limit();
+			byte bytes[] = new byte[limits];
+			buffer.get(bytes, 0, limits);
+			String message = new String(bytes);
+		}catch(Exception e){
+
+		}
+	}
+
+	public static boolean serverIsInUsed(String host, int port){
+		try{
+			DatagramChannel server = DatagramChannel.open();
+			InetSocketAddress sAddr = new InetSocketAddress(host, port);
+			server.bind(sAddr);
+			server.close();
+			return true;
+		}catch(Exception e){
+			return false;
+		}
+	}
+
 }
