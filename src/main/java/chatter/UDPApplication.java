@@ -9,7 +9,7 @@ import java.nio.ByteBuffer;
 import java.nio.channels.DatagramChannel;
 import java.util.Scanner;
 
-public class UDPApplication {
+public class UDPApplication extends Thread{
 
 	private final static Logger LOGGER = LoggerFactory.getLogger(UDPApplication.class);
 	private static final int BUFFER_SIZE = 1024;
@@ -20,17 +20,9 @@ public class UDPApplication {
 	public static DatagramChannel server = null;
 
 	public static void main(String[] args) {
+		UDPApplication reception = new UDPApplication();
+		reception.start();
 
-		if(serverIsInUsed(HOST, PORT)) {
-			try{
-				server = DatagramChannel.open();
-				InetSocketAddress sAddr = new InetSocketAddress(HOST,PORT);
-				server.bind(sAddr);
-				buffer = ByteBuffer.allocate(BUFFER_SIZE);
-			}catch(Exception e){
-
-			}
-		}
 		Scanner reader = new Scanner(System.in);
 		System.out.println("Chatter");
 		DatagramChannel client;
@@ -47,25 +39,39 @@ public class UDPApplication {
 				InetSocketAddress serverAddress = new InetSocketAddress(HOST, PORT);
 
 				client.send(buffer, serverAddress);
-				buffer.clear();
-				/* Stream message to server */
-				streamToServer();
+
 			}catch(Exception e){
 				LOGGER.info("Exception : " +e.getMessage());
 			}
 		}
 	}
 
-	public static void streamToServer(){
-		try{
-			SocketAddress remoteAddr = server.receive(buffer);
-			buffer.flip();
-			int limits = buffer.limit();
-			byte bytes[] = new byte[limits];
-			buffer.get(bytes, 0, limits);
-			String message = new String(bytes);
-		}catch(Exception e){
+	@Override
+	public void run(){
 
+		while(true) {
+			try{
+				if (serverIsInUsed(HOST,PORT)) {
+					server = DatagramChannel.open();
+					InetSocketAddress sAddr = new InetSocketAddress(HOST,PORT);
+					server.bind(sAddr);
+					buffer = ByteBuffer.allocate(BUFFER_SIZE);
+				}
+				SocketAddress remoteAddr = server.receive(buffer);
+				buffer.flip();
+				int limits = buffer.limit();
+				byte bytes[] = new byte[limits];
+				buffer.get(bytes,0,limits);
+				String msg = new String(bytes);
+				if (msg != null) {
+					System.out.println("RECEIVED : " + msg);
+					buffer.rewind();
+					server.send(buffer,remoteAddr);
+					buffer.clear();
+				}
+			}catch(Exception e){
+				LOGGER.info("Excetion Reception : " + e.getMessage());
+			}
 		}
 	}
 
