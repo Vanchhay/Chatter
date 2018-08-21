@@ -14,7 +14,7 @@ public class UDPApplication extends Thread{
 
 	private final static Logger LOGGER = LoggerFactory.getLogger(UDPApplication.class);
 	private static final int BUFFER_SIZE = 1024;
-	private static final String HOST = "239.255.0.1";
+	private static final String HOST = "224.0.0.0";
 	private static final int PORT = 9999;
 
 	public static ByteBuffer buffer = null;
@@ -75,8 +75,8 @@ public class UDPApplication extends Thread{
 						.setOption(StandardSocketOptions.IP_MULTICAST_IF, ni);
 
 				MembershipKey key = dc.join(group, ni);
-				buffer = ByteBuffer.allocate(BUFFER_SIZE);
 				while (true) {
+					buffer = ByteBuffer.allocate(BUFFER_SIZE);
 					if (key.isValid()) {
 						buffer.clear();
 						InetSocketAddress sa = (InetSocketAddress) dc.receive(buffer);
