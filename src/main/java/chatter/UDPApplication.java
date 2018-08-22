@@ -17,8 +17,34 @@ public class UDPApplication extends Thread{
 	private static final String HOST = "224.0.0.0";
 	private static final int PORT = 9999;
 
-	public static ByteBuffer buffer = null;
-	public static DatagramChannel server = null;
+	public static ByteBuffer buffer = ByteBuffer.allocate(BUFFER_SIZE);
+
+	private static InetAddress group = null;
+	private static DatagramChannel dc = null;
+	private static NetworkInterface ni = null;
+	static {
+		Enumeration<NetworkInterface> en = null;
+		try{
+			en = NetworkInterface.getNetworkInterfaces();
+		}catch(SocketException e){
+			e.printStackTrace();
+		}
+
+		while (en.hasMoreElements()) {
+			ni = en.nextElement();
+			System.out.println("Network Interface Name: " +ni.getName());    // lo
+			break;
+		}
+		try{
+			group = InetAddress.getByName(HOST);
+			dc = DatagramChannel.open(StandardProtocolFamily.INET)
+					.setOption(StandardSocketOptions.SO_REUSEADDR, true)
+					.bind(new InetSocketAddress(9999))
+					.setOption(StandardSocketOptions.IP_MULTICAST_IF, ni);
+		}catch(Exception e){
+
+		}
+	}
 
 	public static void main(String[] args) {
 		UDPApplication reception = new UDPApplication();
@@ -26,18 +52,14 @@ public class UDPApplication extends Thread{
 
 		Scanner reader = new Scanner(System.in);
 		System.out.println("Chatter");
-		DatagramChannel client;
 		while(true){
 			try{
-				/* Client */
-				client = DatagramChannel.open();
-				client.bind(null);
-
+				/* Sender */
 				String msg = reader.nextLine();
 				buffer = ByteBuffer.wrap(msg.getBytes());
 				InetSocketAddress serverAddress = new InetSocketAddress(HOST, PORT);
 
-				client.send(buffer, serverAddress);
+				dc.send(buffer, serverAddress);
 
 			}catch(Exception e){
 				LOGGER.info("Exception : " +e.getMessage());
@@ -47,36 +69,10 @@ public class UDPApplication extends Thread{
 
 	@Override
 	public void run(){
-		Enumeration<NetworkInterface> en = null;
-		try{
-			en = NetworkInterface.getNetworkInterfaces();
-		}catch(SocketException e){
-			e.printStackTrace();
-		}
-		NetworkInterface ni = null;
-		while (en.hasMoreElements()) {
-			ni = en.nextElement();
-			System.out.println("Network Interface Name: " +ni.getName());    // lo
-			break;
-		}
 		while(true) {
 			try{
-				if (serverIsInUsed(HOST, PORT)) {
-					server = DatagramChannel.open();
-					InetSocketAddress sAddr = new InetSocketAddress(HOST, PORT);
-					server.bind(sAddr);
-					buffer = ByteBuffer.allocate(BUFFER_SIZE);
-				}
-
-				InetAddress group = InetAddress.getByName(HOST);
-				DatagramChannel dc = DatagramChannel.open(StandardProtocolFamily.INET)
-						.setOption(StandardSocketOptions.SO_REUSEADDR, true)
-						.bind(new InetSocketAddress(9999))
-						.setOption(StandardSocketOptions.IP_MULTICAST_IF, ni);
-
 				MembershipKey key = dc.join(group, ni);
 				while (true) {
-					buffer = ByteBuffer.allocate(BUFFER_SIZE);
 					if (key.isValid()) {
 						buffer.clear();
 						InetSocketAddress sa = (InetSocketAddress) dc.receive(buffer);
@@ -84,7 +80,7 @@ public class UDPApplication extends Thread{
 
 						int limits = buffer.limit();
 						byte bytes[] = new byte[limits];
-						buffer.get(bytes,0,limits);
+						buffer.get(bytes,0, limits);
 						String msg = new String(bytes);
 						System.out.println(sa.getHostString()+ " : " + msg);
 					}
@@ -97,17 +93,4 @@ public class UDPApplication extends Thread{
 			}
 		}
 	}
-
-	public static boolean serverIsInUsed(String host, int port){
-		try{
-			DatagramChannel server = DatagramChannel.open();
-			InetSocketAddress sAddr = new InetSocketAddress(host, port);
-			server.bind(sAddr);
-			server.close();
-			return true;
-		}catch(Exception e){
-			return false;
-		}
-	}
-
 }
